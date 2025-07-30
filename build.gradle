@@ -1,0 +1,49 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+group 'com.terrescalmes'
+version '1.0'
+
+sourceCompatibility = 17
+
+repositories {
+    mavenCentral()
+}
+
+ext {
+    lwjglVersion = "3.3.3"
+    // Auto-détection de l'OS
+    lwjglNatives = "natives-${System.getProperty('os.name').toLowerCase().contains('mac') ? 'macos' : 
+                    System.getProperty('os.name').toLowerCase().contains('win') ? 'windows' : 'linux'}"
+}
+
+dependencies {
+    // LWJGL Core
+    implementation platform("org.lwjgl:lwjgl-bom:$lwjglVersion")
+    implementation "org.lwjgl:lwjgl"
+    implementation "org.lwjgl:lwjgl-glfw"
+    implementation "org.lwjgl:lwjgl-opengl"
+    implementation "org.lwjgl:lwjgl-assimp"
+    runtimeOnly "org.lwjgl:lwjgl::$lwjglNatives"
+    runtimeOnly "org.lwjgl:lwjgl-glfw::$lwjglNatives"
+    runtimeOnly "org.lwjgl:lwjgl-opengl::$lwjglNatives"
+    runtimeOnly "org.lwjgl:lwjgl-assimp::$lwjglNatives"
+
+    // JOML
+    implementation 'org.joml:joml:1.10.5'
+}
+
+application {
+    mainClass = 'com.terrescalmes.Main'
+}
+
+// Copier les resources dans le build (important pour les shaders!)
+sourceSets {
+    main {
+        resources {
+            srcDirs = ["src/main/resources"]
+        }
+    }
+}
