@@ -42,7 +42,7 @@ public class GameEngine {
             return null;
         });
         render = new Render();
-        scene = new Scene();
+        scene = new Scene(window.getWidth(), window.getHeight());
         init(window, scene, render);
         player = new Player(400, 300, 50, 50);
         running = true;
@@ -56,10 +56,10 @@ public class GameEngine {
 
     public void init(Window window, Scene scene, Render render) {
         float[] positions = new float[] {
-                -0.5f, 0.5f, 0.0f,
-                -0.5f, -0.5f, 0.0f,
-                0.5f, -0.5f, 0.0f,
-                0.5f, 0.5f, 0.0f,
+                -0.5f, 0.5f, -1.0f,
+                -0.5f, -0.5f, -1.0f,
+                0.5f, -0.5f, -1.0f,
+                0.5f, 0.5f, -1.0f,
         };
         float[] colors = new float[] {
                 0.5f, 0.0f, 0.0f,
@@ -125,7 +125,7 @@ public class GameEngine {
     }
 
     private void resize() {
-        // Nothing to be done yet
+        scene.resize(window.getWidth(), window.getHeight());
     }
 
     private void update() {
