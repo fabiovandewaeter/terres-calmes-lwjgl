@@ -1,9 +1,10 @@
 package com.terrescalmes.core;
 
-import org.lwjgl.*;
 import org.lwjgl.glfw.*;
 import org.lwjgl.opengl.*;
 import org.lwjgl.system.*;
+
+import com.terrescalmes.entities.Player;
 
 import java.nio.*;
 
@@ -14,7 +15,6 @@ import static org.lwjgl.system.MemoryStack.*;
 import static org.lwjgl.system.MemoryUtil.*;
 
 public class Game {
-
     private long window;
     private int width = 800;
     private int height = 600;
@@ -24,8 +24,7 @@ public class Game {
     private final double UPDATE_TIME = 1.0 / TARGET_UPS;
 
     // Player state
-    private Player currentPlayer;
-    private Player previousPlayer;
+    private Player player;
 
     // Performance counters
     private int fps = 0;
@@ -96,8 +95,7 @@ public class Game {
         glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 
         // Initialize game objects
-        currentPlayer = new Player(400, 300, 50, 50);
-        previousPlayer = new Player(400, 300, 50, 50);
+        player = new Player(400, 300, 50, 50);
 
         // Setup OpenGL for 2D rendering
         glMatrixMode(GL_PROJECTION);
@@ -123,7 +121,7 @@ public class Game {
             // Fixed timestep updates (physique à 30 UPS)
             while (accumulator >= UPDATE_TIME) {
                 // Sauvegarder l'état précédent pour l'interpolation
-                previousPlayer.copyFrom(currentPlayer);
+                player.saveState();
 
                 // Update game logic
                 update();
@@ -134,7 +132,6 @@ public class Game {
 
             // Calculer le facteur d'interpolation
             double interpolationFactor = accumulator / UPDATE_TIME;
-
             // Render with interpolation
             render(interpolationFactor);
             fpsCounter++;
@@ -173,38 +170,38 @@ public class Game {
         float speed = 200.0f; // pixels par seconde
         float deltaSpeed = speed * (float) UPDATE_TIME;
 
-        if (left && currentPlayer.x > 0) {
-            currentPlayer.x -= deltaSpeed;
+        if (left && player.x > 0) {
+            player.x -= deltaSpeed;
         }
-        if (right && currentPlayer.x < width - currentPlayer.width) {
-            currentPlayer.x += deltaSpeed;
+        if (right && player.x < width - player.width) {
+            player.x += deltaSpeed;
         }
-        if (up && currentPlayer.y > 0) {
-            currentPlayer.y -= deltaSpeed;
+        if (up && player.y > 0) {
+            player.y -= deltaSpeed;
         }
-        if (down && currentPlayer.y < height - currentPlayer.height) {
-            currentPlayer.y += deltaSpeed;
+        if (down && player.y < height - player.height) {
+            player.y += deltaSpeed;
         }
 
         // Keep player in bounds
-        currentPlayer.x = Math.max(0, Math.min(width - currentPlayer.width, currentPlayer.x));
-        currentPlayer.y = Math.max(0, Math.min(height - currentPlayer.height, currentPlayer.y));
+        player.x = Math.max(0, Math.min(width - player.width, player.x));
+        player.y = Math.max(0, Math.min(height - player.height, player.y));
     }
 
     private void render(double interpolationFactor) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // Interpoler la position du joueur pour un rendu fluide
-        float renderX = (float) (previousPlayer.x + (currentPlayer.x - previousPlayer.x) * interpolationFactor);
-        float renderY = (float) (previousPlayer.y + (currentPlayer.y - previousPlayer.y) * interpolationFactor);
+        float renderX = (float) (player.prevX + (player.x - player.prevX) * interpolationFactor);
+        float renderY = (float) (player.prevY + (player.y - player.prevY) * interpolationFactor);
 
         // Dessiner le joueur (carré rouge)
         glColor3f(1.0f, 0.3f, 0.3f);
         glBegin(GL_QUADS);
         glVertex2f(renderX, renderY);
-        glVertex2f(renderX + currentPlayer.width, renderY);
-        glVertex2f(renderX + currentPlayer.width, renderY + currentPlayer.height);
-        glVertex2f(renderX, renderY + currentPlayer.height);
+        glVertex2f(renderX + player.width, renderY);
+        glVertex2f(renderX + player.width, renderY + player.height);
+        glVertex2f(renderX, renderY + player.height);
         glEnd();
     }
 
@@ -213,29 +210,5 @@ public class Game {
         glfwDestroyWindow(window);
         glfwTerminate();
         glfwSetErrorCallback(null).free();
-    }
-
-    public static void main(String[] args) {
-        new Game().run();
-    }
-
-    // Classe Player simple
-    private static class Player {
-        float x, y;
-        float width, height;
-
-        public Player(float x, float y, float width, float height) {
-            this.x = x;
-            this.y = y;
-            this.width = width;
-            this.height = height;
-        }
-
-        public void copyFrom(Player other) {
-            this.x = other.x;
-            this.y = other.y;
-            this.width = other.width;
-            this.height = other.height;
-        }
     }
 }
