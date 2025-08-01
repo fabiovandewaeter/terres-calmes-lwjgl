@@ -1,6 +1,7 @@
 package com.terrescalmes.entities;
 
 public class Player {
+
     public float x, y;
     public float prevX, prevY;
     public float width, height;
