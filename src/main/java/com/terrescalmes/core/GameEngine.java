@@ -7,6 +7,10 @@ import com.terrescalmes.core.graphics.Render;
 import com.terrescalmes.core.graphics.Scene;
 import com.terrescalmes.core.graphics.Texture;
 import com.terrescalmes.core.graphics.GUI.IGuiInstance;
+import com.terrescalmes.core.graphics.GUI.LightControls;
+import com.terrescalmes.core.graphics.lights.PointLight;
+import com.terrescalmes.core.graphics.lights.SceneLights;
+import com.terrescalmes.core.graphics.lights.SpotLight;
 import com.terrescalmes.core.graphics.Camera;
 import com.terrescalmes.core.graphics.Material;
 import com.terrescalmes.core.graphics.Mesh;
@@ -58,6 +62,7 @@ public class GameEngine implements IGuiInstance {
     private float rotation;
 
     private boolean running;
+    private LightControls lightControls;
 
     public GameEngine() {
         WindowOptions opts = new WindowOptions(DEFAULT_WIDTH, DEFAULT_HEIGHT);
@@ -79,15 +84,28 @@ public class GameEngine implements IGuiInstance {
     }
 
     public void init(Window window, Scene scene, Render render) {
-        Model cubeModel = ModelLoader.loadModel("cube-model", "resources/models/cube.obj",
+        Model cubeModel = ModelLoader.loadModel("cube-model", "resources/models//cube.obj",
                 scene.getTextureCache());
         scene.addModel(cubeModel);
 
         cubeEntity = new Entity("cube-entity", cubeModel.getId());
-        cubeEntity.setPosition(0, 0, -2);
+        cubeEntity.setPosition(0, 0f, -2);
+        cubeEntity.updateModelMatrix();
         scene.addEntity(cubeEntity);
 
-        scene.setGuiInstance(this);
+        SceneLights sceneLights = new SceneLights();
+        sceneLights.getAmbientLight().setIntensity(0.3f);
+        scene.setSceneLights(sceneLights);
+        sceneLights.getPointLights().add(new PointLight(new Vector3f(1, 1, 1),
+                new Vector3f(0, 0, -1.4f), 1.0f));
+
+        Vector3f coneDir = new Vector3f(0, 0, -1);
+        sceneLights.getSpotLights().add(new SpotLight(new PointLight(new Vector3f(1, 1, 1),
+                new Vector3f(0, 0, -1.4f), 0.0f), coneDir, 140.0f));
+
+        lightControls = new LightControls(scene);
+        scene.setGuiInstance(lightControls);
+
     }
 
     private void gameLoop() {
