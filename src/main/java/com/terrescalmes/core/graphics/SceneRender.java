@@ -21,21 +21,23 @@ public class SceneRender {
         createUniforms();
     }
 
+    public void cleanup() {
+        shaderProgram.cleanup();
+    }
+
     private void createUniforms() {
         uniformsMap = new UniformsMap(shaderProgram.getProgramId());
         uniformsMap.createUniform("projectionMatrix");
         uniformsMap.createUniform("modelMatrix");
+        uniformsMap.createUniform("viewMatrix");
         uniformsMap.createUniform("txtSampler");
-    }
-
-    public void cleanup() {
-        shaderProgram.cleanup();
     }
 
     public void render(Scene scene) {
         shaderProgram.bind();
 
         uniformsMap.setUniform("projectionMatrix", scene.getProjection().getProjMatrix());
+        uniformsMap.setUniform("viewMatrix", scene.getCamera().getViewMatrix());
 
         uniformsMap.setUniform("txtSampler", 0);
 
