@@ -12,6 +12,7 @@ public class Render {
 
     public Render() {
         GL.createCapabilities();
+        glEnable(GL_DEPTH_TEST);
         sceneRender = new SceneRender();
     }
 
