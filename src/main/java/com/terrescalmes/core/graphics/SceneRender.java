@@ -2,6 +2,8 @@ package com.terrescalmes.core.graphics;
 
 import java.util.*;
 
+import com.terrescalmes.entities.Entity;
+
 import static org.lwjgl.opengl.GL30.*;
 
 public class SceneRender {
@@ -21,6 +23,7 @@ public class SceneRender {
     private void createUniforms() {
         uniformsMap = new UniformsMap(shaderProgram.getProgramId());
         uniformsMap.createUniform("projectionMatrix");
+        uniformsMap.createUniform("modelMatrix");
     }
 
     public void cleanup() {
@@ -32,10 +35,17 @@ public class SceneRender {
 
         uniformsMap.setUniform("projectionMatrix", scene.getProjection().getProjMatrix());
 
-        scene.getMeshMap().values().forEach(mesh -> {
-            glBindVertexArray(mesh.getVaoId());
-            glDrawElements(GL_TRIANGLES, mesh.getNumVertices(), GL_UNSIGNED_INT, 0);
-        });
+        Collection<Model> models = scene.getModelMap().values();
+        for (Model model : models) {
+            model.getMeshList().stream().forEach(mesh -> {
+                glBindVertexArray(mesh.getVaoId());
+                List<Entity> entities = model.getEntitiesList();
+                for (Entity entity : entities) {
+                    uniformsMap.setUniform("modelMatrix", entity.getModelMatrix());
+                    glDrawElements(GL_TRIANGLES, mesh.getNumVertices(), GL_UNSIGNED_INT, 0);
+                }
+            });
+        }
 
         glBindVertexArray(0);
 

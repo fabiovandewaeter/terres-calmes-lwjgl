@@ -5,10 +5,18 @@ import com.terrescalmes.Window.WindowOptions;
 import com.terrescalmes.core.graphics.Render;
 import com.terrescalmes.core.graphics.Scene;
 import com.terrescalmes.core.graphics.Mesh;
+import com.terrescalmes.core.graphics.Model;
+import com.terrescalmes.entities.Entity;
 import com.terrescalmes.entities.Player;
 
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL11.*;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import org.joml.Vector3f;
+import org.joml.Vector4f;
 
 public class GameEngine {
     // Game loop timing
@@ -32,6 +40,9 @@ public class GameEngine {
 
     // Player state
     private Player player;
+    private Entity cubeEntity;
+    private Vector4f displInc = new Vector4f();
+    private float rotation;
 
     private boolean running;
 
@@ -56,22 +67,57 @@ public class GameEngine {
 
     public void init(Window window, Scene scene, Render render) {
         float[] positions = new float[] {
-                -0.5f, 0.5f, -1.0f,
-                -0.5f, -0.5f, -1.0f,
-                0.5f, -0.5f, -1.0f,
-                0.5f, 0.5f, -1.0f,
+                // VO
+                -0.5f, 0.5f, 0.5f,
+                // V1
+                -0.5f, -0.5f, 0.5f,
+                // V2
+                0.5f, -0.5f, 0.5f,
+                // V3
+                0.5f, 0.5f, 0.5f,
+                // V4
+                -0.5f, 0.5f, -0.5f,
+                // V5
+                0.5f, 0.5f, -0.5f,
+                // V6
+                -0.5f, -0.5f, -0.5f,
+                // V7
+                0.5f, -0.5f, -0.5f,
         };
         float[] colors = new float[] {
                 0.5f, 0.0f, 0.0f,
                 0.0f, 0.5f, 0.0f,
                 0.0f, 0.0f, 0.5f,
                 0.0f, 0.5f, 0.5f,
+                0.5f, 0.0f, 0.0f,
+                0.0f, 0.5f, 0.0f,
+                0.0f, 0.0f, 0.5f,
+                0.0f, 0.5f, 0.5f,
         };
         int[] indices = new int[] {
+                // Front face
                 0, 1, 3, 3, 1, 2,
+                // Top Face
+                4, 0, 3, 5, 4, 3,
+                // Right face
+                3, 2, 7, 5, 3, 7,
+                // Left face
+                6, 1, 0, 6, 0, 4,
+                // Bottom face
+                2, 1, 6, 2, 6, 7,
+                // Back face
+                7, 6, 4, 7, 4, 5,
         };
+        List<Mesh> meshList = new ArrayList<>();
         Mesh mesh = new Mesh(positions, colors, indices);
-        scene.addMesh("quad", mesh);
+        meshList.add(mesh);
+        String cubeModelId = "cube-model";
+        Model model = new Model(cubeModelId, meshList);
+        scene.addModel(model);
+
+        cubeEntity = new Entity("cube-entity", cubeModelId);
+        cubeEntity.setPosition(0, 0, -2);
+        scene.addEntity(cubeEntity);
     }
 
     private void gameLoop() {
@@ -79,6 +125,7 @@ public class GameEngine {
         double accumulator = 0.0;
 
         while (running && !window.shouldClose()) {
+            window.pollEvents();
             double currentTime = glfwGetTime();
             double frameTime = currentTime - lastTime;
             lastTime = currentTime;
@@ -94,15 +141,15 @@ public class GameEngine {
                 player.saveState();
 
                 // Update game logic
-                // update();
+                input(window, scene, GL_2D);
+                update();
                 upsCounter++;
 
                 accumulator -= UPDATE_TIME;
             }
 
             double interpolationFactor = accumulator / UPDATE_TIME;
-            // render(interpolationFactor);
-            render.render(window, scene);
+            render(interpolationFactor);
 
             // Update performance counters
             fpsCounter++;
@@ -118,9 +165,6 @@ public class GameEngine {
                 String title = String.format("LWJGL Framerate Demo | FPS: %d UPS: %d", fps, ups);
                 glfwSetWindowTitle(window.getWindowHandle(), title);
             }
-
-            glfwSwapBuffers(window.getWindowHandle());
-            glfwPollEvents();
         }
     }
 
@@ -128,54 +172,100 @@ public class GameEngine {
         scene.resize(window.getWidth(), window.getHeight());
     }
 
+    public void input(Window window, Scene scene, long diffTimeMillis) {
+        displInc.zero();
+        if (window.isKeyPressed(GLFW_KEY_UP)) {
+            displInc.y = 1;
+        } else if (window.isKeyPressed(GLFW_KEY_DOWN)) {
+            displInc.y = -1;
+        }
+        if (window.isKeyPressed(GLFW_KEY_LEFT)) {
+            displInc.x = -1;
+        } else if (window.isKeyPressed(GLFW_KEY_RIGHT)) {
+            displInc.x = 1;
+        }
+        if (window.isKeyPressed(GLFW_KEY_A)) {
+            displInc.z = -1;
+        } else if (window.isKeyPressed(GLFW_KEY_Q)) {
+            displInc.z = 1;
+        }
+        if (window.isKeyPressed(GLFW_KEY_Z)) {
+            displInc.w = -1;
+        } else if (window.isKeyPressed(GLFW_KEY_X)) {
+            displInc.w = 1;
+        }
+
+        displInc.mul(diffTimeMillis / 1000.0f);
+
+        Vector3f entityPos = cubeEntity.getPosition();
+        cubeEntity.setPosition(displInc.x + entityPos.x, displInc.y + entityPos.y, displInc.z + entityPos.z);
+        cubeEntity.setScale(cubeEntity.getScale() + displInc.w);
+        cubeEntity.updateModelMatrix();
+    }
+
     private void update() {
-        // Input handling
-        boolean left = glfwGetKey(window.getWindowHandle(), GLFW_KEY_A) == GLFW_PRESS ||
-                glfwGetKey(window.getWindowHandle(), GLFW_KEY_LEFT) == GLFW_PRESS;
-        boolean right = glfwGetKey(window.getWindowHandle(), GLFW_KEY_D) == GLFW_PRESS ||
-                glfwGetKey(window.getWindowHandle(), GLFW_KEY_RIGHT) == GLFW_PRESS;
-        boolean up = glfwGetKey(window.getWindowHandle(), GLFW_KEY_W) == GLFW_PRESS ||
-                glfwGetKey(window.getWindowHandle(), GLFW_KEY_UP) == GLFW_PRESS;
-        boolean down = glfwGetKey(window.getWindowHandle(), GLFW_KEY_S) == GLFW_PRESS ||
-                glfwGetKey(window.getWindowHandle(), GLFW_KEY_DOWN) == GLFW_PRESS;
+        // // Input handling
+        // boolean left = glfwGetKey(window.getWindowHandle(), GLFW_KEY_A) == GLFW_PRESS
+        // ||
+        // glfwGetKey(window.getWindowHandle(), GLFW_KEY_LEFT) == GLFW_PRESS;
+        // boolean right = glfwGetKey(window.getWindowHandle(), GLFW_KEY_D) ==
+        // GLFW_PRESS ||
+        // glfwGetKey(window.getWindowHandle(), GLFW_KEY_RIGHT) == GLFW_PRESS;
+        // boolean up = glfwGetKey(window.getWindowHandle(), GLFW_KEY_W) == GLFW_PRESS
+        // ||
+        // glfwGetKey(window.getWindowHandle(), GLFW_KEY_UP) == GLFW_PRESS;
+        // boolean down = glfwGetKey(window.getWindowHandle(), GLFW_KEY_S) == GLFW_PRESS
+        // ||
+        // glfwGetKey(window.getWindowHandle(), GLFW_KEY_DOWN) == GLFW_PRESS;
 
-        // Player movement (physique à 30 UPS)
-        float speed = 200.0f; // pixels par seconde
-        float deltaSpeed = speed * (float) UPDATE_TIME;
+        // // Player movement (physique à 30 UPS)
+        // float speed = 200.0f; // pixels par seconde
+        // float deltaSpeed = speed * (float) UPDATE_TIME;
 
-        if (left && player.x > 0) {
-            player.x -= deltaSpeed;
-        }
-        if (right && player.x < window.getWidth() - player.width) {
-            player.x += deltaSpeed;
-        }
-        if (up && player.y > 0) {
-            player.y -= deltaSpeed;
-        }
-        if (down && player.y < window.getHeight() - player.height) {
-            player.y += deltaSpeed;
-        }
+        // if (left && player.x > 0) {
+        // player.x -= deltaSpeed;
+        // }
+        // if (right && player.x < window.getWidth() - player.width) {
+        // player.x += deltaSpeed;
+        // }
+        // if (up && player.y > 0) {
+        // player.y -= deltaSpeed;
+        // }
+        // if (down && player.y < window.getHeight() - player.height) {
+        // player.y += deltaSpeed;
+        // }
 
-        // Keep player in bounds
-        player.x = Math.max(0, Math.min(window.getWidth() - player.width, player.x));
-        player.y = Math.max(0, Math.min(window.getHeight() - player.height, player.y));
+        // // Keep player in bounds
+        // player.x = Math.max(0, Math.min(window.getWidth() - player.width, player.x));
+        // player.y = Math.max(0, Math.min(window.getHeight() - player.height,
+        // player.y));
+        rotation += 1.5;
+        if (rotation > 360) {
+            rotation = 0;
+        }
+        cubeEntity.setRotation(1, 1, 1, (float) Math.toRadians(rotation));
+        cubeEntity.updateModelMatrix();
     }
 
     private void render(double interpolationFactor) {
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // Interpoler la position du joueur pour un rendu fluide
-        float renderX = (float) (player.prevX + (player.x - player.prevX) * interpolationFactor);
-        float renderY = (float) (player.prevY + (player.y - player.prevY) * interpolationFactor);
+        // // Interpoler la position du joueur pour un rendu fluide
+        // float renderX = (float) (player.prevX + (player.x - player.prevX) *
+        // interpolationFactor);
+        // float renderY = (float) (player.prevY + (player.y - player.prevY) *
+        // interpolationFactor);
 
-        // Dessiner le joueur (carré rouge)
-        glColor3f(1.0f, 0.3f, 0.3f);
-        glBegin(GL_QUADS);
-        glVertex2f(renderX, renderY);
-        glVertex2f(renderX + player.width, renderY);
-        glVertex2f(renderX + player.width, renderY + player.height);
-        glVertex2f(renderX, renderY + player.height);
-        glEnd();
+        // // Dessiner le joueur (carré rouge)
+        // glColor3f(1.0f, 0.3f, 0.3f);
+        // glBegin(GL_QUADS);
+        // glVertex2f(renderX, renderY);
+        // glVertex2f(renderX + player.width, renderY);
+        // glVertex2f(renderX + player.width, renderY + player.height);
+        // glVertex2f(renderX, renderY + player.height);
+        // glEnd();
+        render.render(window, scene);
+        window.update();
     }
 
     private void cleanup() {
