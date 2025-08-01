@@ -3,6 +3,7 @@ package com.terrescalmes.core.graphics;
 import java.util.*;
 
 import com.terrescalmes.core.TextureCache;
+import com.terrescalmes.core.graphics.GUI.IGuiInstance;
 import com.terrescalmes.entities.Entity;
 
 public class Scene {
@@ -11,6 +12,7 @@ public class Scene {
     private Projection projection;
     private TextureCache textureCache;
     private Camera camera;
+    private IGuiInstance guiInstance;
 
     public Scene(int width, int height) {
         modelMap = new HashMap<>();
@@ -54,5 +56,13 @@ public class Scene {
 
     public Camera getCamera() {
         return camera;
+    }
+
+    public IGuiInstance getGuiInstance() {
+        return guiInstance;
+    }
+
+    public void setGuiInstance(IGuiInstance guiInstance) {
+        this.guiInstance = guiInstance;
     }
 }

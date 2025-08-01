@@ -14,9 +14,23 @@ repositories {
 
 ext {
     lwjglVersion = "3.3.3"
+    imguiJavaVersion = "1.89.0" // Dernière version stable
+
     // Auto-détection de l'OS
     lwjglNatives = "natives-${System.getProperty('os.name').toLowerCase().contains('mac') ? 'macos' : 
                     System.getProperty('os.name').toLowerCase().contains('win') ? 'windows' : 'linux'}"
+
+    // Auto-détection de l'OS pour ImGui-Java
+    def osName = System.getProperty('os.name').toLowerCase()
+    def osArch = System.getProperty('os.arch').toLowerCase()
+    
+    if (osName.contains('win')) {
+        imguiNatives = osArch.contains('64') ? 'natives-windows' : 'natives-windows'
+    } else if (osName.contains('mac')) {
+        imguiNatives = osArch.contains('aarch64') || osArch.contains('arm') ? 'natives-macos-arm64' : 'natives-macos-x86'
+    } else {
+        imguiNatives = osArch.contains('64') ? 'natives-linux-x86_64' : 'natives-linux-x86'
+    }
 }
 
 dependencies {
@@ -35,6 +49,11 @@ dependencies {
 
     // JOML
     implementation 'org.joml:joml:1.10.5'
+
+    // ImGui-Java 
+    implementation "io.github.spair:imgui-java-binding:$imguiJavaVersion"
+    implementation "io.github.spair:imgui-java-lwjgl3:$imguiJavaVersion"
+    runtimeOnly "io.github.spair:imgui-java-$imguiNatives:$imguiJavaVersion"
 }
 
 application {

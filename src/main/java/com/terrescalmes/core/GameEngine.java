@@ -6,6 +6,7 @@ import com.terrescalmes.Window.WindowOptions;
 import com.terrescalmes.core.graphics.Render;
 import com.terrescalmes.core.graphics.Scene;
 import com.terrescalmes.core.graphics.Texture;
+import com.terrescalmes.core.graphics.GUI.IGuiInstance;
 import com.terrescalmes.core.graphics.Camera;
 import com.terrescalmes.core.graphics.Material;
 import com.terrescalmes.core.graphics.Mesh;
@@ -13,6 +14,10 @@ import com.terrescalmes.core.graphics.Model;
 import com.terrescalmes.core.graphics.ModelLoader;
 import com.terrescalmes.entities.Entity;
 import com.terrescalmes.entities.Player;
+
+import imgui.ImGui;
+import imgui.ImGuiIO;
+import imgui.flag.ImGuiCond;
 
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL11.*;
@@ -24,7 +29,7 @@ import org.joml.Vector2f;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 
-public class GameEngine {
+public class GameEngine implements IGuiInstance {
     // Game loop timing
     public static final double TARGET_UPS = 30.0; // Updates per second (physique)
     public static final double UPDATE_TIME = 1.0 / TARGET_UPS;
@@ -60,7 +65,7 @@ public class GameEngine {
             resize();
             return null;
         });
-        render = new Render();
+        render = new Render(window);
         scene = new Scene(window.getWidth(), window.getHeight());
         init(window, scene, render);
         player = new Player(400, 300, 50, 50);
@@ -81,16 +86,20 @@ public class GameEngine {
         cubeEntity = new Entity("cube-entity", cubeModel.getId());
         cubeEntity.setPosition(0, 0, -2);
         scene.addEntity(cubeEntity);
+
+        scene.setGuiInstance(this);
     }
 
     private void gameLoop() {
         double lastTime = glfwGetTime();
         double accumulator = 0.0;
+        IGuiInstance iGuiInstance = scene.getGuiInstance();
 
         while (running && !window.shouldClose()) {
             window.pollEvents();
             window.getMouseInput().input();
-            input(window, scene, (long) (glfwGetTime() * 1000 - lastTime * 1000));
+            boolean inputConsumed = iGuiInstance != null && iGuiInstance.handleGuiInput(scene, window);
+            input(window, scene, (long) (glfwGetTime() * 1000 - lastTime * 1000), inputConsumed);
 
             double currentTime = glfwGetTime();
             double frameTime = currentTime - lastTime;
@@ -135,10 +144,36 @@ public class GameEngine {
     }
 
     private void resize() {
-        scene.resize(window.getWidth(), window.getHeight());
+        int width = window.getWidth();
+        int height = window.getHeight();
+        scene.resize(width, height);
+        render.resize(width, height);
     }
 
-    public void input(Window window, Scene scene, long diffTimeMillis) {
+    public void drawGui() {
+        ImGui.newFrame();
+        ImGui.setNextWindowPos(0, 0, ImGuiCond.Always);
+        ImGui.showDemoWindow();
+        ImGui.endFrame();
+        ImGui.render();
+    }
+
+    public boolean handleGuiInput(Scene scene, Window window) {
+        ImGuiIO imGuiIO = ImGui.getIO();
+        MouseInput mouseInput = window.getMouseInput();
+        Vector2f mousePos = mouseInput.getCurrentPos();
+        imGuiIO.addMousePosEvent(mousePos.x, mousePos.y);
+        imGuiIO.addMouseButtonEvent(0, mouseInput.isLeftButtonPressed());
+        imGuiIO.addMouseButtonEvent(1, mouseInput.isRightButtonPressed());
+
+        return imGuiIO.getWantCaptureMouse() || imGuiIO.getWantCaptureKeyboard();
+    }
+
+    public void input(Window window, Scene scene, long diffTimeMillis, boolean inputConsumed) {
+        if (inputConsumed) {
+            return;
+        }
+
         float move = diffTimeMillis * MOVEMENT_SPEED;
         Camera camera = scene.getCamera();
         if (window.isKeyPressed(GLFW_KEY_W)) {
