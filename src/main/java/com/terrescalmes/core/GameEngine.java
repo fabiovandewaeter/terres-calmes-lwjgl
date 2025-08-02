@@ -5,15 +5,14 @@ import com.terrescalmes.Window;
 import com.terrescalmes.Window.WindowOptions;
 import com.terrescalmes.core.graphics.Render;
 import com.terrescalmes.core.graphics.Scene;
-import com.terrescalmes.core.graphics.Texture;
+import com.terrescalmes.core.graphics.SkyBox;
 import com.terrescalmes.core.graphics.GUI.IGuiInstance;
 import com.terrescalmes.core.graphics.GUI.LightControls;
-import com.terrescalmes.core.graphics.lights.PointLight;
+import com.terrescalmes.core.graphics.lights.AmbientLight;
+import com.terrescalmes.core.graphics.lights.DirLight;
 import com.terrescalmes.core.graphics.lights.SceneLights;
-import com.terrescalmes.core.graphics.lights.SpotLight;
 import com.terrescalmes.core.graphics.Camera;
-import com.terrescalmes.core.graphics.Material;
-import com.terrescalmes.core.graphics.Mesh;
+import com.terrescalmes.core.graphics.Fog;
 import com.terrescalmes.core.graphics.Model;
 import com.terrescalmes.core.graphics.ModelLoader;
 import com.terrescalmes.entities.Entity;
@@ -24,10 +23,6 @@ import imgui.ImGuiIO;
 import imgui.flag.ImGuiCond;
 
 import static org.lwjgl.glfw.GLFW.*;
-import static org.lwjgl.opengl.GL11.*;
-
-import java.util.ArrayList;
-import java.util.List;
 
 import org.joml.Vector2f;
 import org.joml.Vector3f;
@@ -63,6 +58,8 @@ public class GameEngine implements IGuiInstance {
 
     private boolean running;
     private LightControls lightControls;
+    private static final int NUM_CHUNKS = 40;
+    private Entity[][] terrainEntities;
 
     public GameEngine() {
         WindowOptions opts = new WindowOptions(DEFAULT_WIDTH, DEFAULT_HEIGHT);
@@ -84,28 +81,32 @@ public class GameEngine implements IGuiInstance {
     }
 
     public void init(Window window, Scene scene, Render render) {
-        Model cubeModel = ModelLoader.loadModel("cube-model", "resources/models//cube.obj",
+        String terrainModelId = "terrain";
+        Model terrainModel = ModelLoader.loadModel(terrainModelId, "resources/models/terrain/terrain.obj",
                 scene.getTextureCache());
-        scene.addModel(cubeModel);
-
-        cubeEntity = new Entity("cube-entity", cubeModel.getId());
-        cubeEntity.setPosition(0, 0f, -2);
-        cubeEntity.updateModelMatrix();
-        scene.addEntity(cubeEntity);
+        scene.addModel(terrainModel);
+        Entity terrainEntity = new Entity("terrainEntity", terrainModelId);
+        terrainEntity.setScale(100.0f);
+        terrainEntity.updateModelMatrix();
+        scene.addEntity(terrainEntity);
 
         SceneLights sceneLights = new SceneLights();
-        sceneLights.getAmbientLight().setIntensity(0.3f);
+        AmbientLight ambientLight = sceneLights.getAmbientLight();
+        ambientLight.setIntensity(0.5f);
+        ambientLight.setColor(0.3f, 0.3f, 0.3f);
+
+        DirLight dirLight = sceneLights.getDirLight();
+        dirLight.setPosition(0, 1, 0);
+        dirLight.setIntensity(1.0f);
         scene.setSceneLights(sceneLights);
-        sceneLights.getPointLights().add(new PointLight(new Vector3f(1, 1, 1),
-                new Vector3f(0, 0, -1.4f), 1.0f));
 
-        Vector3f coneDir = new Vector3f(0, 0, -1);
-        sceneLights.getSpotLights().add(new SpotLight(new PointLight(new Vector3f(1, 1, 1),
-                new Vector3f(0, 0, -1.4f), 0.0f), coneDir, 140.0f));
+        SkyBox skyBox = new SkyBox("resources/models/skybox/skybox.obj", scene.getTextureCache());
+        skyBox.getSkyBoxEntity().setScale(50);
+        scene.setSkyBox(skyBox);
 
-        lightControls = new LightControls(scene);
-        scene.setGuiInstance(lightControls);
+        scene.setFog(new Fog(true, new Vector3f(0.5f, 0.5f, 0.5f), 0.95f));
 
+        scene.getCamera().moveUp(0.1f);
     }
 
     private void gameLoop() {
@@ -219,31 +220,34 @@ public class GameEngine implements IGuiInstance {
     }
 
     private void update() {
-        rotation += 1.5;
-        if (rotation > 360) {
-            rotation = 0;
+        // updateTerrain(scene);
+    }
+
+    public void updateTerrain(Scene scene) {
+        int cellSize = 10;
+        Camera camera = scene.getCamera();
+        Vector3f cameraPos = camera.getPosition();
+        int cellCol = (int) (cameraPos.x / cellSize);
+        int cellRow = (int) (cameraPos.z / cellSize);
+
+        int numRows = NUM_CHUNKS * 2 + 1;
+        int numCols = numRows;
+        int zOffset = -NUM_CHUNKS;
+        float scale = cellSize / 2.0f;
+        for (int j = 0; j < numRows; j++) {
+            int xOffset = -NUM_CHUNKS;
+            for (int i = 0; i < numCols; i++) {
+                Entity entity = terrainEntities[j][i];
+                entity.setScale(scale);
+                entity.setPosition((cellCol + xOffset) * 2.0f, 0, (cellRow + zOffset) * 2.0f);
+                entity.getModelMatrix().identity().scale(scale).translate(entity.getPosition());
+                xOffset++;
+            }
+            zOffset++;
         }
-        cubeEntity.setRotation(1, 1, 1, (float) Math.toRadians(rotation));
-        cubeEntity.updateModelMatrix();
     }
 
     private void render(double interpolationFactor) {
-        // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        // // Interpoler la position du joueur pour un rendu fluide
-        // float renderX = (float) (player.prevX + (player.x - player.prevX) *
-        // interpolationFactor);
-        // float renderY = (float) (player.prevY + (player.y - player.prevY) *
-        // interpolationFactor);
-
-        // // Dessiner le joueur (carré rouge)
-        // glColor3f(1.0f, 0.3f, 0.3f);
-        // glBegin(GL_QUADS);
-        // glVertex2f(renderX, renderY);
-        // glVertex2f(renderX + player.width, renderY);
-        // glVertex2f(renderX + player.width, renderY + player.height);
-        // glVertex2f(renderX, renderY + player.height);
-        // glEnd();
         render.render(window, scene);
         window.update();
     }
