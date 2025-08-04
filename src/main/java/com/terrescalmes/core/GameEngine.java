@@ -37,7 +37,7 @@ public class GameEngine implements IGuiInstance {
     private static final int DEFAULT_WIDTH = 1280;
     private static final int DEFAULT_HEIGHT = 720;
     private static final float MOUSE_SENSITIVITY = 0.1f;
-    private static final float MOVEMENT_SPEED = 0.01f;
+    private static final float MOVEMENT_SPEED = 0.1f;
 
     private Window window;
     private Render render;
