@@ -4,8 +4,10 @@ import org.joml.Matrix4f;
 
 public class Projection {
     private static final float FOV = (float) Math.toRadians(90.0f);
-    private static final float Z_FAR = 1000.f;
-    private static final float Z_NEAR = 0.01f;
+    private static final float Z_FAR = 2000.f;
+    // private static final float Z_NEAR = 0.01f;
+    // private static final float Z_NEAR = 1.f;
+    private static final float Z_NEAR = 0.1f;
 
     private Matrix4f projMatrix;
 

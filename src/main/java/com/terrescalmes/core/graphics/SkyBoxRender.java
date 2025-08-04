@@ -1,5 +1,6 @@
 package com.terrescalmes.core.graphics;
 
+import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 
 import com.terrescalmes.core.TextureCache;
@@ -43,6 +44,12 @@ public class SkyBoxRender {
         if (skyBox == null) {
             return;
         }
+        // Sauvegarder l'état actuel
+        glDepthMask(false);
+
+        // Désactiver le test de profondeur
+        glDisable(GL_DEPTH_TEST);
+
         shaderProgram.bind();
 
         uniformsMap.setUniform("projectionMatrix", scene.getProjection().getProjMatrix());
@@ -75,6 +82,10 @@ public class SkyBoxRender {
         glBindVertexArray(0);
 
         shaderProgram.unbind();
+        // Réactiver le test de profondeur
+        glEnable(GL_DEPTH_TEST);
+        // Restaurer l'état
+        glDepthMask(true);
     }
 
     public void cleanup() {

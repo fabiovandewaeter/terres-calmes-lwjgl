@@ -6,6 +6,7 @@ import com.terrescalmes.Window.WindowOptions;
 import com.terrescalmes.core.graphics.Render;
 import com.terrescalmes.core.graphics.Scene;
 import com.terrescalmes.core.graphics.SkyBox;
+import com.terrescalmes.core.TerrainGenerator;
 import com.terrescalmes.core.graphics.GUI.IGuiInstance;
 import com.terrescalmes.core.graphics.GUI.LightControls;
 import com.terrescalmes.core.graphics.lights.AmbientLight;
@@ -30,15 +31,14 @@ import org.joml.Vector4f;
 
 public class GameEngine implements IGuiInstance {
     // Game loop timing
-    public static final double TARGET_UPS = 30.0; // Updates per second (physique)
+    public static final double TARGET_UPS = 30.0;
     public static final double UPDATE_TIME = 1.0 / TARGET_UPS;
-    private static final String WINDOW_TITLE = "Terres Calmes";
-    private static final int DEFAULT_WIDTH = 800;
-    private static final int DEFAULT_HEIGHT = 600;
+    private static final String WINDOW_TITLE = "Terres Calmes - Debug";
+    private static final int DEFAULT_WIDTH = 1280;
+    private static final int DEFAULT_HEIGHT = 720;
     private static final float MOUSE_SENSITIVITY = 0.1f;
-    private static final float MOVEMENT_SPEED = 0.005f;
+    private static final float MOVEMENT_SPEED = 0.01f;
 
-    // private long window;
     private Window window;
     private Render render;
     private Scene scene;
@@ -52,14 +52,14 @@ public class GameEngine implements IGuiInstance {
 
     // Player state
     private Player player;
-    private Entity cubeEntity;
     private Vector4f displInc = new Vector4f();
     private float rotation;
 
     private boolean running;
-    private LightControls lightControls;
-    private static final int NUM_CHUNKS = 40;
-    private Entity[][] terrainEntities;
+
+    // Terrain debug
+    private Entity singleTerrainEntity;
+    private boolean showWireframe = false;
 
     public GameEngine() {
         WindowOptions opts = new WindowOptions(DEFAULT_WIDTH, DEFAULT_HEIGHT);
@@ -81,38 +81,85 @@ public class GameEngine implements IGuiInstance {
     }
 
     public void init(Window window, Scene scene, Render render) {
-        String terrainModelId = "terrain";
-        Model terrainModel = ModelLoader.loadModel(terrainModelId, "resources/models/terrain/terrain.obj",
-                scene.getTextureCache());
-        scene.addModel(terrainModel);
-        Entity terrainEntity = new Entity("terrainEntity", terrainModelId);
-        terrainEntity.setScale(100.0f);
-        terrainEntity.updateModelMatrix();
-        scene.addEntity(terrainEntity);
+        System.out.println("=== INITIALISATION DU TERRAIN ===");
 
+        // Commencer simple : un seul terrain au centre
+        String terrainModelId = "debug_terrain";
+
+        try {
+            // Essayer le terrain procédural maintenant
+            Model terrainModel = TerrainGenerator.generateTerrain(terrainModelId, scene.getTextureCache());
+            scene.addModel(terrainModel);
+            System.out.println("Modèle de terrain procédural créé avec succès");
+            System.out.println("Nombre de matériaux: " + terrainModel.getMaterialList().size());
+
+            // Créer une seule entité de terrain
+            singleTerrainEntity = new Entity("debugTerrainEntity", terrainModelId);
+            singleTerrainEntity.setPosition(0, 0, 0); // Au centre
+            singleTerrainEntity.setScale(1.0f);
+            singleTerrainEntity.updateModelMatrix();
+            scene.addEntity(singleTerrainEntity);
+            System.out.println("Entité de terrain ajoutée à la position: " + singleTerrainEntity.getPosition());
+
+        } catch (Exception e) {
+            System.err.println("Erreur lors de la création du terrain: " + e.getMessage());
+            e.printStackTrace();
+
+            // Fallback vers le cube de test
+            try {
+                // Model terrainModel = TerrainGenerator.generateTestCube(terrainModelId,
+                // scene.getTextureCache());
+                // scene.addModel(terrainModel);
+                // singleTerrainEntity = new Entity("debugTerrainEntity", terrainModelId);
+                // singleTerrainEntity.setPosition(0, 0, 0);
+                // singleTerrainEntity.updateModelMatrix();
+                // scene.addEntity(singleTerrainEntity);
+                System.out.println("Fallback: cube de test créé");
+            } catch (Exception e2) {
+                System.err.println("Erreur même avec le cube de test: " + e2.getMessage());
+            }
+        }
+
+        // Configuration de l'éclairage simple
         SceneLights sceneLights = new SceneLights();
         AmbientLight ambientLight = sceneLights.getAmbientLight();
-        ambientLight.setIntensity(0.5f);
-        ambientLight.setColor(0.3f, 0.3f, 0.3f);
+        ambientLight.setIntensity(0.8f); // Plus lumineux pour voir le terrain
+        ambientLight.setColor(1.0f, 1.0f, 1.0f); // Blanc pur
 
         DirLight dirLight = sceneLights.getDirLight();
-        dirLight.setPosition(0, 1, 0);
+        dirLight.setPosition(0.0f, 1.0f, 0.0f); // Directement au-dessus
         dirLight.setIntensity(1.0f);
+        dirLight.setColor(1.0f, 1.0f, 1.0f); // Blanc pur
         scene.setSceneLights(sceneLights);
+        System.out.println("Éclairage configuré");
 
-        SkyBox skyBox = new SkyBox("resources/models/skybox/skybox.obj", scene.getTextureCache());
-        skyBox.getSkyBoxEntity().setScale(50);
-        scene.setSkyBox(skyBox);
+        // Skybox plus petite pour debug
+        if (scene.getSkyBox() == null) {
+            try {
+                SkyBox skyBox = new SkyBox("resources/models/skybox/skybox.obj", scene.getTextureCache());
+                skyBox.getSkyBoxEntity().setScale(500); // Plus petit pour debug
+                scene.setSkyBox(skyBox);
+                System.out.println("Skybox configurée");
+            } catch (Exception e) {
+                System.err.println("Erreur skybox: " + e.getMessage());
+            }
+        }
 
-        scene.setFog(new Fog(true, new Vector3f(0.5f, 0.5f, 0.5f), 0.95f));
+        // Fog désactivé pour debug
+        scene.setFog(new Fog(false, new Vector3f(0.7f, 0.8f, 0.9f), 0.001f));
 
-        scene.getCamera().moveUp(0.1f);
+        // Position de caméra pour voir le terrain
+        scene.getCamera().setPosition(5, 10, 10); // Plus loin et plus haut
+        scene.getCamera().setRotation((float) Math.toRadians(90), 0); // Regarder vers le bas
+
+        System.out.println("Position initiale de la caméra: " + scene.getCamera().getPosition());
+        System.out.println("=== INIT TERMINÉ ===");
     }
 
     private void gameLoop() {
         double lastTime = glfwGetTime();
         double accumulator = 0.0;
-        IGuiInstance iGuiInstance = scene.getGuiInstance();
+        IGuiInstance iGuiInstance = this; // Utiliser this pour l'interface GUI
 
         while (running && !window.shouldClose()) {
             window.pollEvents();
@@ -123,27 +170,20 @@ public class GameEngine implements IGuiInstance {
             double currentTime = glfwGetTime();
             double frameTime = currentTime - lastTime;
 
-            // Cap frame time to prevent spiral of death
             frameTime = Math.min(frameTime, 0.25);
-
             accumulator += frameTime;
 
-            // Fixed timestep updates (physique à 30 UPS)
             while (accumulator >= UPDATE_TIME) {
-                // Sauvegarder l'état précédent pour l'interpolation
-                player.saveState();
-
-                // Update game logic
+                if (player != null)
+                    player.saveState();
                 update();
                 upsCounter++;
-
                 accumulator -= UPDATE_TIME;
             }
 
             double interpolationFactor = accumulator / UPDATE_TIME;
             render(interpolationFactor);
 
-            // Update performance counters
             fpsCounter++;
             fpsTimer += frameTime;
             if (fpsTimer >= 1.0) {
@@ -153,8 +193,9 @@ public class GameEngine implements IGuiInstance {
                 upsCounter = 0;
                 fpsTimer = 0.0;
 
-                // Mettre à jour le titre de la fenêtre avec les FPS/UPS
-                String title = String.format("Terres Calmes | FPS: %d UPS: %d", fps, ups);
+                Vector3f pos = scene.getCamera().getPosition();
+                String title = String.format("Terres Calmes DEBUG | FPS: %d UPS: %d | Pos: %.1f, %.1f, %.1f",
+                        fps, ups, pos.x, pos.y, pos.z);
                 glfwSetWindowTitle(window.getWindowHandle(), title);
             }
 
@@ -170,11 +211,57 @@ public class GameEngine implements IGuiInstance {
     }
 
     public void drawGui() {
-        ImGui.newFrame();
-        ImGui.setNextWindowPos(0, 0, ImGuiCond.Always);
-        ImGui.showDemoWindow();
-        ImGui.endFrame();
-        ImGui.render();
+        // ImGui.newFrame();
+        // ImGui.setNextWindowPos(10, 10, ImGuiCond.Always);
+
+        // if (ImGui.begin("Debug Terrain")) {
+        // Vector3f pos = scene.getCamera().getPosition();
+        // ImGui.text("Camera Position: %.2f, %.2f, %.2f", pos.x, pos.y, pos.z);
+        // ImGui.text("FPS: %d | UPS: %d", fps, ups);
+
+        // ImGui.separator();
+        // ImGui.text("Contrôles:");
+        // ImGui.text("WASD: Déplacement");
+        // ImGui.text("Espace/Ctrl: Monter/Descendre");
+        // ImGui.text("Shift: Vitesse x5");
+        // ImGui.text("Clic droit: Regarder autour");
+
+        // ImGui.separator();
+        // if (ImGui.button("Reset Position")) {
+        // scene.getCamera().setPosition(0, 50, 100);
+        // scene.getCamera().setRotation((float) Math.toRadians(-25), 0);
+        // }
+
+        // if (ImGui.button("Position proche")) {
+        // scene.getCamera().setPosition(0, 10, 20);
+        // scene.getCamera().setRotation((float) Math.toRadians(-15), 0);
+        // }
+
+        // if (ImGui.button("Vue aérienne")) {
+        // scene.getCamera().setPosition(0, 100, 0);
+        // scene.getCamera().setRotation((float) Math.toRadians(-90), 0);
+        // }
+
+        // ImGui.separator();
+        // ImGui.text("Terrain Debug:");
+        // if (singleTerrainEntity != null) {
+        // Vector3f terrainPos = singleTerrainEntity.getPosition();
+        // ImGui.text("Terrain pos: %.2f, %.2f, %.2f", terrainPos.x, terrainPos.y,
+        // terrainPos.z);
+        // ImGui.text("Terrain scale: %.2f", singleTerrainEntity.getScale());
+        // }
+
+        // // Info sur la scène
+        // ImGui.separator();
+        // ImGui.text("Scene Info:");
+        // ImGui.text("Models: %d", scene.getModelMap().size());
+        // ImGui.text("Has SkyBox: %s", scene.getSkyBox() != null ? "Oui" : "Non");
+        // ImGui.text("Fog active: %s", scene.getFog().isActive() ? "Oui" : "Non");
+        // }
+        // ImGui.end();
+
+        // ImGui.endFrame();
+        // ImGui.render();
     }
 
     public boolean handleGuiInput(Scene scene, Window window) {
@@ -195,6 +282,12 @@ public class GameEngine implements IGuiInstance {
 
         float move = diffTimeMillis * MOVEMENT_SPEED;
         Camera camera = scene.getCamera();
+
+        // Mouvement plus rapide avec Shift
+        if (window.isKeyPressed(GLFW_KEY_LEFT_SHIFT)) {
+            move *= 5.0f;
+        }
+
         if (window.isKeyPressed(GLFW_KEY_W)) {
             camera.moveForward(move);
         } else if (window.isKeyPressed(GLFW_KEY_S)) {
@@ -205,10 +298,16 @@ public class GameEngine implements IGuiInstance {
         } else if (window.isKeyPressed(GLFW_KEY_D)) {
             camera.moveRight(move);
         }
-        if (window.isKeyPressed(GLFW_KEY_UP)) {
+        if (window.isKeyPressed(GLFW_KEY_SPACE)) {
             camera.moveUp(move);
-        } else if (window.isKeyPressed(GLFW_KEY_DOWN)) {
+        } else if (window.isKeyPressed(GLFW_KEY_LEFT_CONTROL)) {
             camera.moveDown(move);
+        }
+
+        // Reset rapide avec R
+        if (window.isKeyPressed(GLFW_KEY_R)) {
+            camera.setPosition(0, 10, 10);
+            camera.setRotation((float) Math.toRadians(-90), 0);
         }
 
         MouseInput mouseInput = window.getMouseInput();
@@ -220,31 +319,7 @@ public class GameEngine implements IGuiInstance {
     }
 
     private void update() {
-        // updateTerrain(scene);
-    }
-
-    public void updateTerrain(Scene scene) {
-        int cellSize = 10;
-        Camera camera = scene.getCamera();
-        Vector3f cameraPos = camera.getPosition();
-        int cellCol = (int) (cameraPos.x / cellSize);
-        int cellRow = (int) (cameraPos.z / cellSize);
-
-        int numRows = NUM_CHUNKS * 2 + 1;
-        int numCols = numRows;
-        int zOffset = -NUM_CHUNKS;
-        float scale = cellSize / 2.0f;
-        for (int j = 0; j < numRows; j++) {
-            int xOffset = -NUM_CHUNKS;
-            for (int i = 0; i < numCols; i++) {
-                Entity entity = terrainEntities[j][i];
-                entity.setScale(scale);
-                entity.setPosition((cellCol + xOffset) * 2.0f, 0, (cellRow + zOffset) * 2.0f);
-                entity.getModelMatrix().identity().scale(scale).translate(entity.getPosition());
-                xOffset++;
-            }
-            zOffset++;
-        }
+        // Update simple pour debug
     }
 
     private void render(double interpolationFactor) {

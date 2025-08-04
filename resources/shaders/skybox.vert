@@ -12,6 +12,14 @@ uniform mat4 modelMatrix;
 
 void main()
 {
-    gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0);
+    // Utiliser seulement la partie rotation de la vue
+    mat4 viewWithoutTranslation = mat4(mat3(viewMatrix));
+    
+    // Position de la skybox (sans translation)
+    vec4 pos = projectionMatrix * viewWithoutTranslation * modelMatrix * vec4(position, 1.0);
+    
+    // Forcer la profondeur au maximum (dernier plan)
+    gl_Position = vec4(pos.xy, pos.w, pos.w);
+    
     outTextCoord = texCoord;
 }
