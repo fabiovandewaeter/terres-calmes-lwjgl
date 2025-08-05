@@ -60,6 +60,7 @@ public class GameEngine implements IGuiInstance {
     // Terrain debug
     private Entity singleTerrainEntity;
     private boolean showWireframe = false;
+    private TerrainManager terrainManager;
 
     public GameEngine() {
         WindowOptions opts = new WindowOptions(DEFAULT_WIDTH, DEFAULT_HEIGHT);
@@ -83,42 +84,7 @@ public class GameEngine implements IGuiInstance {
     public void init(Window window, Scene scene, Render render) {
         System.out.println("=== INITIALISATION DU TERRAIN ===");
 
-        // Commencer simple : un seul terrain au centre
-        String terrainModelId = "debug_terrain";
-
-        try {
-            // Essayer le terrain procédural maintenant
-            Model terrainModel = TerrainGenerator.generateTerrain(terrainModelId, scene.getTextureCache());
-            scene.addModel(terrainModel);
-            System.out.println("Modèle de terrain procédural créé avec succès");
-            System.out.println("Nombre de matériaux: " + terrainModel.getMaterialList().size());
-
-            // Créer une seule entité de terrain
-            singleTerrainEntity = new Entity("debugTerrainEntity", terrainModelId);
-            singleTerrainEntity.setPosition(0, 0, 0); // Au centre
-            singleTerrainEntity.setScale(1.0f);
-            singleTerrainEntity.updateModelMatrix();
-            scene.addEntity(singleTerrainEntity);
-            System.out.println("Entité de terrain ajoutée à la position: " + singleTerrainEntity.getPosition());
-
-        } catch (Exception e) {
-            System.err.println("Erreur lors de la création du terrain: " + e.getMessage());
-            e.printStackTrace();
-
-            // Fallback vers le cube de test
-            try {
-                // Model terrainModel = TerrainGenerator.generateTestCube(terrainModelId,
-                // scene.getTextureCache());
-                // scene.addModel(terrainModel);
-                // singleTerrainEntity = new Entity("debugTerrainEntity", terrainModelId);
-                // singleTerrainEntity.setPosition(0, 0, 0);
-                // singleTerrainEntity.updateModelMatrix();
-                // scene.addEntity(singleTerrainEntity);
-                System.out.println("Fallback: cube de test créé");
-            } catch (Exception e2) {
-                System.err.println("Erreur même avec le cube de test: " + e2.getMessage());
-            }
-        }
+        terrainManager = new TerrainManager(scene, scene.getTextureCache());
 
         // Configuration de l'éclairage simple
         SceneLights sceneLights = new SceneLights();
@@ -320,6 +286,8 @@ public class GameEngine implements IGuiInstance {
 
     private void update() {
         // Update simple pour debug
+        Vector3f cameraPos = scene.getCamera().getPosition();
+        terrainManager.update(cameraPos);
     }
 
     private void render(double interpolationFactor) {
@@ -328,6 +296,9 @@ public class GameEngine implements IGuiInstance {
     }
 
     private void cleanup() {
+        if (terrainManager != null) {
+            terrainManager.cleanup();
+        }
         render.cleanup();
         scene.cleanup();
         window.cleanup();

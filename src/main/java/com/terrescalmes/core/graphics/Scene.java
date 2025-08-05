@@ -1,3 +1,4 @@
+
 package com.terrescalmes.core.graphics;
 
 import java.util.*;
@@ -93,5 +94,35 @@ public class Scene {
 
     public void setFog(Fog fog) {
         this.fog = fog;
+    }
+
+    /**
+     * Supprime une entité de la scène
+     */
+    public void removeEntity(Entity entity) {
+        if (entity != null) {
+            String modelId = entity.getModelId();
+            Model model = modelMap.get(modelId);
+            if (model != null) {
+                model.getEntitiesList().remove(entity);
+            }
+        }
+    }
+
+    /**
+     * Supprime un modèle de la scène (attention, supprime aussi toutes ses entités)
+     */
+    public void removeModel(String modelId) {
+        Model model = modelMap.remove(modelId);
+        if (model != null) {
+            model.cleanup();
+        }
+    }
+
+    /**
+     * Vérifie si un modèle existe déjà
+     */
+    public boolean hasModel(String modelId) {
+        return modelMap.containsKey(modelId);
     }
 }

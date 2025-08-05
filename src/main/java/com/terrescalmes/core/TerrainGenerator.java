@@ -343,4 +343,126 @@ public class TerrainGenerator {
 
         return new Model(modelId, Arrays.asList(material));
     }
+    // Ajouter cette méthode à votre classe TerrainGenerator existante
+
+    /**
+     * Génère un chunk de terrain à une position donnée avec continuité
+     */
+    public static Model generateTerrainChunk(String modelId, TextureCache textureCache,
+            float offsetX, float offsetZ, float chunkSize) {
+
+        int chunkVertices = TERRAIN_SIZE; // Utiliser la même résolution
+        float vertexSpacing = chunkSize / (chunkVertices - 1);
+
+        // Générer la heightmap avec offset pour assurer la continuité
+        float[][] heightMap = generateHeightMapWithOffset(offsetX, offsetZ, vertexSpacing);
+
+        List<Float> vertices = new ArrayList<>();
+        List<Float> normals = new ArrayList<>();
+        List<Float> texCoords = new ArrayList<>();
+        List<Integer> indices = new ArrayList<>();
+
+        // Générer les vertices
+        for (int z = 0; z < chunkVertices; z++) {
+            for (int x = 0; x < chunkVertices; x++) {
+                float height = heightMap[z][x];
+
+                // Position RELATIVE au chunk (0 à chunkSize), pas absolue
+                vertices.add((float) x * vertexSpacing);
+                vertices.add(height);
+                vertices.add((float) z * vertexSpacing);
+
+                // Coordonnées de texture avec répétition
+                texCoords.add((float) x / (chunkVertices - 1) * 4.0f);
+                texCoords.add((float) z / (chunkVertices - 1) * 4.0f);
+
+                // Calculer la normale
+                Vector3f normal = calculateNormal(heightMap, x, z);
+                normals.add(normal.x);
+                normals.add(normal.y);
+                normals.add(normal.z);
+            }
+        }
+
+        // Générer les indices (même logique que before)
+        for (int z = 0; z < chunkVertices - 1; z++) {
+            for (int x = 0; x < chunkVertices - 1; x++) {
+                int topLeft = (z * chunkVertices) + x;
+                int topRight = topLeft + 1;
+                int bottomLeft = ((z + 1) * chunkVertices) + x;
+                int bottomRight = bottomLeft + 1;
+
+                // Triangles avec winding order correct
+                indices.add(topLeft);
+                indices.add(bottomLeft);
+                indices.add(topRight);
+
+                indices.add(topRight);
+                indices.add(bottomLeft);
+                indices.add(bottomRight);
+            }
+        }
+
+        // Convertir en tableaux
+        float[] verticesArray = new float[vertices.size()];
+        for (int i = 0; i < vertices.size(); i++) {
+            verticesArray[i] = vertices.get(i);
+        }
+
+        float[] normalsArray = new float[normals.size()];
+        for (int i = 0; i < normals.size(); i++) {
+            normalsArray[i] = normals.get(i);
+        }
+
+        float[] texCoordsArray = new float[texCoords.size()];
+        for (int i = 0; i < texCoords.size(); i++) {
+            texCoordsArray[i] = texCoords.get(i);
+        }
+
+        int[] indicesArray = indices.stream().mapToInt(i -> i).toArray();
+
+        // Créer le mesh
+        Mesh mesh = new Mesh(verticesArray, normalsArray, texCoordsArray, indicesArray);
+
+        // Créer le matériau
+        Material material = new Material();
+        material.setAmbientColor(new Vector4f(0.2f, 0.5f, 0.2f, 1.0f));
+        material.setDiffuseColor(new Vector4f(0.4f, 0.8f, 0.4f, 1.0f));
+        material.setSpecularColor(new Vector4f(0.1f, 0.1f, 0.1f, 1.0f));
+        material.setReflectance(0.1f);
+        material.setTexturePath("default_texture");
+        material.getMeshList().add(mesh);
+
+        return new Model(modelId, Arrays.asList(material));
+    }
+
+    /**
+     * Génère une heightmap avec offset pour assurer la continuité entre chunks
+     */
+    private static float[][] generateHeightMapWithOffset(float offsetX, float offsetZ, float vertexSpacing) {
+        float[][] heightMap = new float[TERRAIN_SIZE][TERRAIN_SIZE];
+
+        for (int z = 0; z < TERRAIN_SIZE; z++) {
+            for (int x = 0; x < TERRAIN_SIZE; x++) {
+                // Coordonnées absolues dans le monde
+                float worldX = offsetX + (x * vertexSpacing);
+                float worldZ = offsetZ + (z * vertexSpacing);
+
+                float height = 0;
+                float amplitude = HEIGHT_SCALE;
+                float frequency = FREQUENCY;
+
+                // Générer plusieurs octaves de bruit avec les coordonnées mondiales
+                for (int i = 0; i < OCTAVES; i++) {
+                    height += perlinNoise(worldX * frequency, worldZ * frequency) * amplitude;
+                    amplitude *= PERSISTENCE;
+                    frequency *= 2;
+                }
+
+                heightMap[z][x] = height;
+            }
+        }
+
+        return heightMap;
+    }
 }
