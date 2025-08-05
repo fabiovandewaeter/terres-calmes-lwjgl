@@ -355,36 +355,38 @@ public class TerrainGenerator {
         float vertexSpacing = chunkSize / (chunkVertices - 1);
 
         // Générer la heightmap avec offset pour assurer la continuité
-        float[][] heightMap = generateHeightMapWithOffset(offsetX, offsetZ, vertexSpacing);
+        // On génère une heightmap légèrement plus grande pour calculer les normales
+        // correctement
+        float[][] heightMap = generateHeightMapWithOffset(offsetX, offsetZ, vertexSpacing, chunkVertices + 2);
 
         List<Float> vertices = new ArrayList<>();
         List<Float> normals = new ArrayList<>();
         List<Float> texCoords = new ArrayList<>();
         List<Integer> indices = new ArrayList<>();
 
-        // Générer les vertices
-        for (int z = 0; z < chunkVertices; z++) {
-            for (int x = 0; x < chunkVertices; x++) {
+        // Générer les vertices (en ignorant les bords étendus de la heightmap)
+        for (int z = 1; z < chunkVertices + 1; z++) {
+            for (int x = 1; x < chunkVertices + 1; x++) {
                 float height = heightMap[z][x];
 
                 // Position RELATIVE au chunk (0 à chunkSize), pas absolue
-                vertices.add((float) x * vertexSpacing);
+                vertices.add((float) (x - 1) * vertexSpacing);
                 vertices.add(height);
-                vertices.add((float) z * vertexSpacing);
+                vertices.add((float) (z - 1) * vertexSpacing);
 
                 // Coordonnées de texture avec répétition
-                texCoords.add((float) x / (chunkVertices - 1) * 4.0f);
-                texCoords.add((float) z / (chunkVertices - 1) * 4.0f);
+                texCoords.add((float) (x - 1) / (chunkVertices - 1) * 4.0f);
+                texCoords.add((float) (z - 1) / (chunkVertices - 1) * 4.0f);
 
-                // Calculer la normale
-                Vector3f normal = calculateNormal(heightMap, x, z);
+                // Calculer la normale avec la heightmap étendue
+                Vector3f normal = calculateNormalExtended(heightMap, x, z, vertexSpacing);
                 normals.add(normal.x);
                 normals.add(normal.y);
                 normals.add(normal.z);
             }
         }
 
-        // Générer les indices (même logique que before)
+        // Générer les indices (même logique qu'avant)
         for (int z = 0; z < chunkVertices - 1; z++) {
             for (int x = 0; x < chunkVertices - 1; x++) {
                 int topLeft = (z * chunkVertices) + x;
@@ -439,14 +441,14 @@ public class TerrainGenerator {
     /**
      * Génère une heightmap avec offset pour assurer la continuité entre chunks
      */
-    private static float[][] generateHeightMapWithOffset(float offsetX, float offsetZ, float vertexSpacing) {
-        float[][] heightMap = new float[TERRAIN_SIZE][TERRAIN_SIZE];
+    private static float[][] generateHeightMapWithOffset(float offsetX, float offsetZ, float vertexSpacing, int size) {
+        float[][] heightMap = new float[size][size];
 
-        for (int z = 0; z < TERRAIN_SIZE; z++) {
-            for (int x = 0; x < TERRAIN_SIZE; x++) {
-                // Coordonnées absolues dans le monde
-                float worldX = offsetX + (x * vertexSpacing);
-                float worldZ = offsetZ + (z * vertexSpacing);
+        for (int z = 0; z < size; z++) {
+            for (int x = 0; x < size; x++) {
+                // Coordonnées absolues dans le monde (en décalant de -1 pour les bords étendus)
+                float worldX = offsetX + ((x - 1) * vertexSpacing);
+                float worldZ = offsetZ + ((z - 1) * vertexSpacing);
 
                 float height = 0;
                 float amplitude = HEIGHT_SCALE;
@@ -464,5 +466,21 @@ public class TerrainGenerator {
         }
 
         return heightMap;
+    }
+
+    /**
+     * Calcule les normales avec une heightmap étendue pour de meilleures normales
+     * aux bords
+     */
+    private static Vector3f calculateNormalExtended(float[][] heightMap, int x, int z, float spacing) {
+        float heightL = heightMap[z][x - 1];
+        float heightR = heightMap[z][x + 1];
+        float heightD = heightMap[z - 1][x];
+        float heightU = heightMap[z + 1][x];
+
+        Vector3f normal = new Vector3f(heightL - heightR, 2.0f * spacing, heightD - heightU);
+        normal.normalize();
+
+        return normal;
     }
 }
