@@ -6,22 +6,17 @@ import com.terrescalmes.Window.WindowOptions;
 import com.terrescalmes.core.graphics.Render;
 import com.terrescalmes.core.graphics.Scene;
 import com.terrescalmes.core.graphics.SkyBox;
-import com.terrescalmes.core.TerrainGenerator;
 import com.terrescalmes.core.graphics.GUI.IGuiInstance;
-import com.terrescalmes.core.graphics.GUI.LightControls;
 import com.terrescalmes.core.graphics.lights.AmbientLight;
 import com.terrescalmes.core.graphics.lights.DirLight;
 import com.terrescalmes.core.graphics.lights.SceneLights;
 import com.terrescalmes.core.graphics.Camera;
 import com.terrescalmes.core.graphics.Fog;
-import com.terrescalmes.core.graphics.Model;
-import com.terrescalmes.core.graphics.ModelLoader;
 import com.terrescalmes.entities.Entity;
 import com.terrescalmes.entities.Player;
 
 import imgui.ImGui;
 import imgui.ImGuiIO;
-import imgui.flag.ImGuiCond;
 
 import static org.lwjgl.glfw.GLFW.*;
 
@@ -38,6 +33,8 @@ public class GameEngine implements IGuiInstance {
     private static final int DEFAULT_HEIGHT = 720;
     private static final float MOUSE_SENSITIVITY = 0.1f;
     private static final float MOVEMENT_SPEED = 0.1f;
+    private static final float JUMP_FORCE = 25.0f; // Force du saut
+    private static final float MOVEMENT_FORCE = 50.0f; // Force de mouvement
 
     private Window window;
     private Render render;
@@ -62,6 +59,10 @@ public class GameEngine implements IGuiInstance {
     private boolean showWireframe = false;
     private TerrainManager terrainManager;
 
+    // Nouveau : moteur physique
+    private PhysicsEngine physicsEngine;
+    private double lastPhysicsTime = 0.0;
+
     public GameEngine() {
         WindowOptions opts = new WindowOptions(DEFAULT_WIDTH, DEFAULT_HEIGHT);
         window = new Window(WINDOW_TITLE, opts, () -> {
@@ -85,6 +86,10 @@ public class GameEngine implements IGuiInstance {
         System.out.println("=== INITIALISATION DU TERRAIN ===");
 
         terrainManager = new TerrainManager(scene, scene.getTextureCache());
+
+        // NOUVEAU : Initialiser le moteur physique après le terrain
+        physicsEngine = new PhysicsEngine(terrainManager);
+        physicsEngine.setPlayerHeight(1.8f); // Hauteur du joueur en mètres
 
         // Configuration de l'éclairage simple
         SceneLights sceneLights = new SceneLights();
@@ -246,38 +251,86 @@ public class GameEngine implements IGuiInstance {
             return;
         }
 
-        float move = diffTimeMillis * MOVEMENT_SPEED;
+        // float move = diffTimeMillis * MOVEMENT_SPEED;
         Camera camera = scene.getCamera();
+
+        float deltaTime = diffTimeMillis / 1000.0f; // Convertir en secondes
+        // Force de mouvement de base
+        float moveForce = MOVEMENT_FORCE * 1000;
 
         // Mouvement plus rapide avec Shift
         if (window.isKeyPressed(GLFW_KEY_LEFT_SHIFT)) {
-            move *= 5.0f;
+            moveForce *= 2.0f;
         }
 
+        // Calculer les forces de mouvement horizontal
+        Vector3f horizontalForce = new Vector3f();
+
+        // Mouvement avant/arrière
         if (window.isKeyPressed(GLFW_KEY_W)) {
-            camera.moveForward(move);
+            Vector3f forward = new Vector3f(
+                    (float) Math.sin(camera.getRotation().y),
+                    0,
+                    -(float) Math.cos(camera.getRotation().y)).normalize();
+            horizontalForce.add(forward.mul(moveForce));
         } else if (window.isKeyPressed(GLFW_KEY_S)) {
-            camera.moveBackwards(move);
+            Vector3f backward = new Vector3f(
+                    -(float) Math.sin(camera.getRotation().y),
+                    0,
+                    (float) Math.cos(camera.getRotation().y)).normalize();
+            horizontalForce.add(backward.mul(moveForce));
         }
+        // Mouvement gauche/droite
         if (window.isKeyPressed(GLFW_KEY_A)) {
-            camera.moveLeft(move);
+            Vector3f left = new Vector3f(
+                    (float) Math.sin(camera.getRotation().y - Math.PI / 2),
+                    0,
+                    -(float) Math.cos(camera.getRotation().y - Math.PI / 2)).normalize();
+            horizontalForce.add(left.mul(moveForce));
         } else if (window.isKeyPressed(GLFW_KEY_D)) {
-            camera.moveRight(move);
+            Vector3f right = new Vector3f(
+                    (float) Math.sin(camera.getRotation().y + Math.PI / 2),
+                    0,
+                    -(float) Math.cos(camera.getRotation().y + Math.PI / 2)).normalize();
+            horizontalForce.add(right.mul(moveForce));
         }
+
+        // Appliquer la force horizontale au moteur physique
+        if (horizontalForce.lengthSquared() > 0) {
+            physicsEngine.addHorizontalForce(horizontalForce, deltaTime);
+        }
+
+        // Saut
         if (window.isKeyPressed(GLFW_KEY_SPACE)) {
-            camera.moveUp(move);
-        } else if (window.isKeyPressed(GLFW_KEY_LEFT_CONTROL)) {
-            camera.moveDown(move);
+            physicsEngine.jump(JUMP_FORCE);
+        }
+
+        // Vols créatifs (pour debug) - désactivés si vous voulez du réalisme
+        boolean creativeMode = window.isKeyPressed(GLFW_KEY_LEFT_CONTROL);
+        if (creativeMode) {
+            // Mode créatif : mouvement libre sans physique
+            float move = diffTimeMillis * MOVEMENT_SPEED;
+            if (window.isKeyPressed(GLFW_KEY_LEFT_SHIFT)) {
+                move *= 5.0f;
+            }
+
+            if (window.isKeyPressed(GLFW_KEY_LEFT_CONTROL)) {
+                camera.moveDown(move);
+            }
+
+            // Désactiver temporairement la physique en mode créatif
+            // physicsEngine.resetVelocity();
         }
 
         // Reset rapide avec R
         if (window.isKeyPressed(GLFW_KEY_R)) {
-            camera.setPosition(0, 10, 10);
-            camera.setRotation((float) Math.toRadians(-90), 0);
+            physicsEngine.teleportTo(camera, new Vector3f(0, 50, 10));
         }
 
+        // Gestion de la souris (inchangée)
         MouseInput mouseInput = window.getMouseInput();
-        if (mouseInput.isRightButtonPressed()) {
+        // if (mouseInput.isRightButtonPressed()) {
+        if (true) {
             Vector2f displVec = mouseInput.getDisplVec();
             camera.addRotation((float) Math.toRadians(-displVec.x * MOUSE_SENSITIVITY),
                     (float) Math.toRadians(-displVec.y * MOUSE_SENSITIVITY));
@@ -285,6 +338,18 @@ public class GameEngine implements IGuiInstance {
     }
 
     private void update() {
+        double currentTime = glfwGetTime();
+        float deltaTime = (float) (currentTime - lastPhysicsTime);
+        lastPhysicsTime = currentTime;
+
+        // Limiter le deltaTime pour éviter les gros sauts
+        deltaTime = Math.min(deltaTime, 0.033f); // Maximum 33ms (30 FPS)
+
+        // Mettre à jour la physique
+        if (physicsEngine != null) {
+            physicsEngine.update(scene.getCamera(), deltaTime);
+        }
+
         // Update simple pour debug
         Vector3f cameraPos = scene.getCamera().getPosition();
         terrainManager.update(cameraPos);

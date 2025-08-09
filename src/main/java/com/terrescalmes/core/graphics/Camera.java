@@ -139,4 +139,8 @@ public class Camera {
 
         recalculate();
     }
+
+    public Vector2f getRotation() {
+        return rotation;
+    }
 }
